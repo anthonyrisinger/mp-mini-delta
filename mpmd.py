@@ -126,17 +126,18 @@ class Printer:
         return read
 
     def read(self, lines=None, caller=None, until=None):
-        """Read gcode from connection."""
+        """Read bytes from connection."""
         if caller:
-            lines = None
-            until = b'\nok\n'
-        if until:
-            read = self.conn.read_until(until).decode()
+            read = b''
+            while read != b'ok\n' and b'\nok\n' not in read:
+                read += self.conn.read_until(b'ok\n')
+        elif until:
+            read = self.conn.read_until(until)
         elif lines:
-            read = ''.join(self.conn.readline().decode() for line in range(lines))
+            read = b''.join(self.conn.readline() for line in range(lines))
         else:
-            read = self.conn.read_all().decode()
-        return read
+            read = self.conn.read_all()
+        return read.decode()
 
     def gconv(self, op, param, value):
         """Convert (param, value) pair to string."""
