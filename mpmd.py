@@ -56,6 +56,7 @@ class Printer:
         self.conn = None
 
     def __getattr__(self, name):
+        """Forward simple gcodes [G1, M500, ...] to write()."""
         upper = name.upper()
         if upper[0] in ('G', 'M') and upper[1:].isdigit():
             def wrapper(**kwds):
