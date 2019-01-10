@@ -41,9 +41,17 @@ class Printer:
         if not self.conn.is_open:
             self.conn.open()
         self.conn.setRTS(False)
-        self.buffer = self.conn.read_all()
         self._mesh = None
         self._homed = False
+        self._init_gcode()
+
+    def _init_gcode(self):
+        # Absolute positioning.
+        self.write('G90')
+        # Metric units.
+        self.write('G21')
+        # Default movement speed.
+        self.write('G1', F=3000)
 
     def G28(self, **kwds):
         read = self.write('G28', **kwds)
