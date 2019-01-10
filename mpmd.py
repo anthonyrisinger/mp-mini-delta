@@ -235,41 +235,51 @@ class Printer:
             self.warn(f"Unsafe mesh data, try 'G29 P2 V4'", format=False)
             return self
 
-        self.info(f'leveling mesh offset at ({I},{J}) using {gauge}mm gauge..')
+        self.info(f'leveling mesh offset at ({I},{J})')
         self.move(self.bed(I=I, J=J), F=F)
 
-        offset = save
+        back = None
         choice = None
+        offset = save
         while choice != 'q':
 
             if choice in ('h', '?'):
-                self.info(f'steps are incremental nozzle movements (distance-from-bed/{steps})')
-                self.info(f' [h]elp   display this message')
-                self.info(f' [u]p     move one step up ({Zmax})')
-                self.info(f' [d]own   move one step down ({Zmin})')
-                self.info(f" [r]eset  reset offset ({save})")
-                self.info(f' [s]et    set offset ({Z} - {gauge}mm)')
+                self.info(f'z-offset is {Z}mm, next movement is {step}mm, gauge is {gauge}mm')
+                self.info(f' [u]p     move up to {Zmax}mm')
+                self.info(f' [d]own   move down to {Zmin}mm')
+                self.info(f' [b]ack   back to {back}mm')
+                self.info(f' [s]et    set to {Z}mm [-{gauge}mm gauge]')
+                self.info(f" [r]eset  reset to {save}mm")
                 self.info(f' [q]uit   quit leveling ({I},{J})')
+                self.info(f' [h]elp   display this message')
             elif choice == 'u':
-                self.info(f" [u]p ({Zmax})")
+                self.info(f" [u]p to {Zmax}mm")
                 self.G1(Z=Zmax)
+                back = Z
             elif choice == 'd':
-                self.info(f" [d]own ({Zmin})")
+                self.info(f" [d]own to {Zmin}mm")
                 self.G1(Z=Zmin)
+                back = Z
+            elif choice == 'b':
+                self.info(f" [b]ack to {back}mm")
+                self.G1(Z=back)
+                back = Z
             elif choice == 'r':
-                self.info(f" [r]eset ({save})")
+                self.info(f" [r]eset to {save}mm")
                 self.M421(I=I, J=J, Z=save+0.001)
                 self.M421(E=True)
                 self.xyz = self.bed(I=I, J=J)
                 offset = save
+                back = None
             elif choice == 's':
-                self.info(f" [s]et ({Z} - {gauge}mm)")
+                self.info(f" [s]et to {Z}mm [-{gauge}mm gauge]")
                 self.M421(I=I, J=J, Z=Z-gauge+0.001)
                 self.M421(E=True)
                 offset = Z
 
             (*XY, Z) = self.xyz
-            step = abs(round(Z/steps, 3))
+            back = Z if back is None else back
+            step = abs(round(Z / steps, 3))
             Zmin = round(Z - step, 3)
             Zmax = round(Z + step, 3)
             # Set choice=h on first pass, then start prompting user; no choice == last choice.
