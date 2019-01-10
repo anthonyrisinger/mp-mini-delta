@@ -50,6 +50,18 @@ class Printer:
         self._homed = True
         return read
 
+    def M421(self, **kwds):
+        read = self.write('M421', **kwds)
+        if self._mesh is None and (not kwds or kwds == {'E': True}):
+            lines = read.strip().split('\n')[:-1]
+            mesh = [[0.0]*7 for n in range(7)]
+            for J, line in enumerate(lines):
+                offsets = line.strip().split(' ')
+                for I, offset in enumerate(offsets):
+                    mesh[I][J] = float(offset)
+            self._mesh = mesh
+        return read
+
     def __enter__(self):
         """Refresh connection."""
         if self.conn is not None:
@@ -75,12 +87,7 @@ class Printer:
     def mesh(self):
         """Fetch and cache bed offsets."""
         if self._mesh is None:
-            lines = self.write('M421').strip().split('\n')[:-1]
-            self._mesh = [[0.0]*7 for n in range(7)]
-            for J, line in enumerate(lines):
-                offsets = line.strip().split(' ')
-                for I, offset in enumerate(offsets):
-                    self._mesh[I][J] = float(offset)
+            self.M421()
         return self._mesh
 
     @property
