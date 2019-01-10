@@ -30,6 +30,7 @@ class Printer:
         #TODO: mock dryrun connection.
         self.dryrun = dryrun
         self.quiet = quiet
+        self.debug = False
 
         kwds.update(port=port, baudrate=baudrate, parity=parity)
         infos = ('Printer(', f'dryrun={dryrun}', *(f'{k}={v}' for k,v in kwds.items()), ')')
@@ -115,7 +116,9 @@ class Printer:
             self.error(f'gcode({call}) -> ()', format=False)
             return None
 
-        self.log(f'>>> {b" ".join(gcode[:-1]).decode()}', format=False)
+        if self.debug:
+            self.log(f'>>> {b" ".join(gcode[:-1]).decode()}', format=False)
+
         if self.dryrun:
             return None
 
@@ -123,7 +126,8 @@ class Printer:
             self.conn.write(code)
 
         read = self.read(caller=(op, pvs, gcode))
-        self.log(read, end='', format=False)
+        if self.debug:
+            self.log(read, end='', format=False)
         return read
 
     def read(self, lines=None, caller=None, until=None):
