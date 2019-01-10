@@ -208,48 +208,54 @@ class Printer:
         Y = (J - 3) * 15.0 + Y
         return (X, Y, Z)
 
-    def level(self, I=3, J=3, gauge=0.1):
+    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3):
         mesh = self.mesh
         if mesh[0][0] == 0:
-            self.error(f"Empty mesh data at 0,0 (did you run G29?)", format=False)
+            self.warn(f"Missing expected mesh data, try 'G29 P2 V4'", format=False)
             return self
 
         save = mesh[I][J]
         if save < -0.5 or save > 0.5:
-            self.error(f"unsafe mesh data '{save}' at {I},{J} (did you run G29?)")
+            self.warn(f"Unsafe mesh data, try 'G29 P2 V4'", format=False)
             return self
 
-        self.info(f'leveling bed mesh offset {I},{J} using {gauge}mm gauge..')
-        self.info(f'z-steps are incremental nozzle movements: (nozzle - bed)/3')
-        self.info(f'  [u]p     move one step up')
-        self.info(f'  [d]own   move one step down')
-        self.info(f'  [r]eset  restore old offset')
-        self.info(f'  [s]ave   store current offset')
-        self.info(f'  [q]uit   quit leveling {I},{J}')
+        self.info(f'leveling mesh offset at ({I},{J}) using {gauge}mm gauge..')
+        self.move(self.bed(I=I, J=J), F=F)
 
-        new = save
-        self.move(self.bed(I=I, J=J), F=2000)
-        while True:
-            X, Y, Z = self.xyz
-            choice = input(f' Move {I},{J} ({new} -> {Z}) [u]p/[d]own OR [r]eset/[s]ave/[q]uit? ')
-            if choice not in ('u', 'd', 'r', 'q', 's'):
-                self.warn('choose one of [udrqs]')
-                continue
-
-            if choice == 'u':
-                print(self.xyz)
+        offset = save
+        choice = None
+        while choice != 'q':
+            if choice in ('h', '?'):
+                self.info(f'steps are incremental nozzle movements (distance-from-bed/{steps})')
+                self.info(f' [h]elp   display this message')
+                self.info(f' [u]p     move one step up ({Zmax})')
+                self.info(f' [d]own   move one step down ({Zmin})')
+                self.info(f" [r]eset  reset offset ({save})")
+                self.info(f' [s]et    set offset ({Z} - {gauge}mm)')
+                self.info(f' [q]uit   quit leveling ({I},{J})')
+            elif choice == 'u':
+                self.info(f" [u]p ({Zmax})")
+                self.G1(Z=Zmax)
             elif choice == 'd':
-                print(self.xyz)
+                self.info(f" [d]own ({Zmin})")
+                self.G1(Z=Zmin)
             elif choice == 'r':
-                new = save
-                self.M421(I=I, J=J, Z=new)
-                self.info(f"reset {I},{J} to '{new}'")
+                self.info(f" [r]eset ({save})")
+                self.M421(I=I, J=J, Z=save+0.001)
+                self.M421(E=True)
+                self.xyz = self.bed(I=I, J=J)
+                offset = save
             elif choice == 's':
-                new = Z
-                self.M421(I=I, J=J, Z=new)
-                self.info(f"saved {I},{J} as '{new}'")
-            elif choice == 'q':
-                break
+                self.info(f" [s]et ({Z} - {gauge}mm)")
+                self.M421(I=I, J=J, Z=Z-gauge+0.001)
+                self.M421(E=True)
+                offset = Z
+            (*XY, Z) = self.xyz
+            step = abs(round(Z/steps, 3))
+            Zmin = round(Z - step, 3)
+            Zmax = round(Z + step, 3)
+            choice = 'h' if choice is None else input(
+                '<<<< [h]elp [u]p [d]own [r]eset [s]et [q]uit? ') or choice
 
         self.xyz = self.bed(I=I, J=J)
         self.info(f'done leveling bed mesh offset ({I},{J})')
