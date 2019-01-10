@@ -209,6 +209,14 @@ class Printer:
         return (X, Y, Z)
 
     def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3):
+        if I < 0 or I > 6 or J < 0 or J > 6:
+            self.warn(f'mesh offset at ({I},{J}) out of bounds')
+            return self
+
+        if abs(3 - I) + abs(3 - J) > 3:
+            self.warn(f'mesh offset at ({I},{J}) cannot be leveled')
+            return self
+
         mesh = self.mesh
         if mesh[0][0] == 0:
             self.warn(f"Missing expected mesh data, try 'G29 P2 V4'", format=False)
