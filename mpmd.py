@@ -43,6 +43,12 @@ class Printer:
         self.conn.setRTS(False)
         self.buffer = self.conn.read_all()
         self._mesh = None
+        self._homed = False
+
+    def G28(self, **kwds):
+        read = self.write('G28', **kwds)
+        self._homed = True
+        return read
 
     def __enter__(self):
         """Refresh connection."""
@@ -167,6 +173,9 @@ class Printer:
         if not kwds and (not args or args[0] is None):
             self.G28()
             return self
+
+        if not self._homed:
+            self.G28()
 
         if len(args) == 1 and hasattr(args[0], '__len__'):
             args = tuple(args[0])
