@@ -20,7 +20,7 @@ def load_ipython_extension(ipython):
 class Printer:
     """Monoprice Mini Delta controller."""
 
-    def __init__(self, *, dryrun=False, quiet=False, pattern='/dev/cu.usbmodem*',
+    def __init__(self, *, dryrun=False, quiet=False, debug=False, pattern='/dev/cu.usbmodem*',
                  port=None, baudrate=115200, parity=serial.PARITY_NONE, **kwds):
         if not port and pattern:
             port = (*glob.glob(pattern), None)[0]
@@ -30,7 +30,7 @@ class Printer:
         #TODO: mock dryrun connection.
         self.dryrun = dryrun
         self.quiet = quiet
-        self.debug = False
+        self.debug = debug
 
         kwds.update(port=port, baudrate=baudrate, parity=parity)
         infos = ('Printer(', f'dryrun={dryrun}', *(f'{k}={v}' for k,v in kwds.items()), ')')
@@ -276,10 +276,11 @@ def main():
     parser = argparse.ArgumentParser(description='Leveler.')
     parser.add_argument('--dryrun', help='dryrun', action='store_true')
     parser.add_argument('--quiet', help='quiet', action='store_true')
+    parser.add_argument('--debug', help='debug', action='store_true')
     parser.add_argument('--port', help='serial port')
     args = parser.parse_args()
 
-    with Printer(dryrun=args.dryrun, quiet=args.quiet, port=args.port) as p:
+    with Printer(dryrun=args.dryrun, quiet=args.quiet, debug=args.debug, port=args.port) as p:
         p.M421()
 
 
