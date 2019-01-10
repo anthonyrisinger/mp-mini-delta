@@ -233,6 +233,7 @@ class Printer:
         offset = save
         choice = None
         while choice != 'q':
+
             if choice in ('h', '?'):
                 self.info(f'steps are incremental nozzle movements (distance-from-bed/{steps})')
                 self.info(f' [h]elp   display this message')
@@ -258,10 +259,12 @@ class Printer:
                 self.M421(I=I, J=J, Z=Z-gauge+0.001)
                 self.M421(E=True)
                 offset = Z
+
             (*XY, Z) = self.xyz
             step = abs(round(Z/steps, 3))
             Zmin = round(Z - step, 3)
             Zmax = round(Z + step, 3)
+            # Set choice=h on first pass, then start prompting user; no choice == last choice.
             choice = 'h' if choice is None else input(
                 '<<<< [h]elp [u]p [d]own [r]eset [s]et [q]uit? ') or choice
 
