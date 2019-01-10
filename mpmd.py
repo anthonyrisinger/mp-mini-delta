@@ -193,6 +193,52 @@ class Printer:
         Y = (J - 3) * 15.0 + Y
         return (X, Y, Z)
 
+    def level(self, I=3, J=3, gauge=0.1):
+        mesh = self.mesh
+        if mesh[0][0] == 0:
+            self.error(f"Empty mesh data at 0,0 (did you run G29?)", format=False)
+            return self
+
+        save = mesh[I][J]
+        if save < -0.5 or save > 0.5:
+            self.error(f"unsafe mesh data '{save}' at {I},{J} (did you run G29?)")
+            return self
+
+        self.info(f'leveling bed mesh offset {I},{J} using {gauge}mm gauge..')
+        self.info(f'z-steps are incremental nozzle movements: (nozzle - bed)/3')
+        self.info(f'  [u]p     move one step up')
+        self.info(f'  [d]own   move one step down')
+        self.info(f'  [r]eset  restore old offset')
+        self.info(f'  [s]ave   store current offset')
+        self.info(f'  [q]uit   quit leveling {I},{J}')
+
+        new = save
+        self.move(self.bed(I=I, J=J), F=2000)
+        while True:
+            X, Y, Z = self.xyz
+            choice = input(f' Move {I},{J} ({new} -> {Z}) [u]p/[d]own OR [r]eset/[s]ave/[q]uit? ')
+            if choice not in ('u', 'd', 'r', 'q', 's'):
+                self.warn('choose one of [udrqs]')
+                continue
+
+            if choice == 'u':
+                print(self.xyz)
+            elif choice == 'd':
+                print(self.xyz)
+            elif choice == 'r':
+                new = save
+                self.M421(I=I, J=J, Z=new)
+                self.info(f"reset {I},{J} to '{new}'")
+            elif choice == 's':
+                new = Z
+                self.M421(I=I, J=J, Z=new)
+                self.info(f"saved {I},{J} as '{new}'")
+            elif choice == 'q':
+                break
+
+        self.xyz = self.bed(I=I, J=J)
+        self.info(f'done leveling bed mesh offset ({I},{J})')
+
 
 def main():
     parser = argparse.ArgumentParser(description='Leveler.')
