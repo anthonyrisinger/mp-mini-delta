@@ -240,11 +240,10 @@ class Printer:
 
         back = None
         choice = None
-        offset = save
         while choice != 'q':
 
             if choice in ('h', '?'):
-                self.info(f'z-offset is {Z}mm, next movement is {step}mm, gauge is {gauge}mm')
+                self.info(f'nozzle at {Z}mm, next movement is {step}mm, gauge is {gauge}mm')
                 self.info(f' [u]p     move up to {Zmax}mm')
                 self.info(f' [d]own   move down to {Zmin}mm')
                 self.info(f' [b]ack   back to {back}mm')
@@ -269,13 +268,12 @@ class Printer:
                 self.M421(I=I, J=J, Z=save+0.001)
                 self.M421(E=True)
                 self.xyz = self.bed(I=I, J=J)
-                offset = save
+                choice = None
                 back = None
             elif choice == 's':
                 self.info(f" [s]et to {Z}mm [-{gauge}mm gauge]")
                 self.M421(I=I, J=J, Z=Z-gauge+0.001)
                 self.M421(E=True)
-                offset = Z
 
             (*XY, Z) = self.xyz
             back = Z if back is None else back
