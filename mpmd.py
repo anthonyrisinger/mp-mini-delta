@@ -58,11 +58,10 @@ class Printer:
 
     def __getattr__(self, name):
         """Forward simple gcodes [G1, M500, ...] to write()."""
-        upper = name.upper()
-        if upper[0] in ('G', 'M') and upper[1:].isdigit():
+        if name[:1] in ('G', 'M') and name[1:].isdigit():
             def wrapper(**kwds):
                 if self.conn is not None:
-                    return self.write(upper, **kwds)
+                    return self.write(name, **kwds)
             return wrapper
         raise AttributeError(name)
 
