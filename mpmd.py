@@ -24,8 +24,8 @@ GCODES = {
 def load_ipython_extension(ipython, quiet=False, debug=False):
     """Run IPython shell -> %reload_ext mpmd"""
     for ns in (os.environ, ipython.user_ns):
-        quiet = int(ns.get('MPMDQUIET', quiet))
-        debug = int(ns.get('MPMDDEBUG', debug))
+        quiet = int(ns.get('MPMDQUIET') or quiet)
+        debug = int(ns.get('MPMDDEBUG') or debug)
     mp = Printer(quiet=quiet, debug=debug)
     mp.info("Use 'mp' to interact, eg", suffix=':')
     mp.info('>>> mp.home()', format=False)
