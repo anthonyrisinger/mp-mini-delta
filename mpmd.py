@@ -5,8 +5,9 @@ import argparse
 import collections
 import glob
 import json
-import sys
 import os
+import sys
+import traceback
 
 import serial
 
@@ -363,7 +364,7 @@ class Printer:
 def main():
     parser = argparse.ArgumentParser(description='Monoprice Mini Delta Leveler.')
     parser.add_argument('--home', help='home print head', action='store_true')
-    parser.add_argument('--level', help='level mesh offset', metavar='IJ', nargs='?', const='33')
+    parser.add_argument('--level', help='level mesh offsets', metavar='IJ', nargs='?', const=True)
     parser.add_argument('--gauge', help='gauge thickness', metavar='MM', default=0.1, type=float)
     parser.add_argument('--port', help='serial port name or path')
     parser.add_argument('--dryrun', '-n',  help='do not run gcode', action='store_true')
@@ -374,13 +375,26 @@ def main():
         if args.home:
             printer.home()
         if args.level:
-            I, J = int(args.level[0]), int(args.level[-1])
-            try:
-                printer.level(I, J, gauge=args.gauge)
-            except:
-                raise
+            if args.level is True:
+                probes = Printer.probes
             else:
-                printer.M500()
+                probes = ((int(args.level[0]), int(args.level[-1])),)
+            for I, J in probes:
+                offset = printer.mesh[I][J]
+                choice = input(f'<<< [c]ontinue [s]kip leveling bed mesh ({I},{J})? {offset} ')
+                if choice in ('s', 'n', 'q', 'skip', 'no', 'quit'):
+                    continue
+
+                try:
+                    printer.level(I, J, gauge=args.gauge)
+                except Exception as e:
+                    printer.error(f"level({I},{J}) raised '{e}'", suffix=':')
+                    traceback.print_exc()
+                else:
+                    printer.info('writing to SD Card')
+                    printer.M500()
+            if args.home:
+                printer.home()
 
 
 if __name__ == '__main__':
