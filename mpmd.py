@@ -37,6 +37,9 @@ class Printer:
 
     Coordinates = collections.namedtuple('Coordinates', 'X,Y,Z')
 
+    # All possible IJ bed mesh probe indices.
+    probes = tuple((I, J) for J in range(7) for I in range(7) if abs(3 - I) + abs(3 - J) <= 3)
+
     def __init__(self, *, dryrun=False, quiet=False, debug=False, pattern='/dev/cu.usbmodem*',
                  port=None, baudrate=115200, parity=serial.PARITY_NONE, **kwds):
         if not port and pattern:
