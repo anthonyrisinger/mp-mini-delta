@@ -2,23 +2,40 @@
 from pprint import pprint as pp
 
 import argparse
+import collections
 import glob
 import json
 import sys
+import os
 
 import serial
 
 
-def load_ipython_extension(ipython):
+GCODES = {
+    'G1': 'linear move',
+    'G90': 'absolute positioning',
+    'G21': 'millimeter units',
+    'M114': 'get current position',
+    'M421': 'set mesh value',
+    'M500': 'save settings',
+}
+
+
+def load_ipython_extension(ipython, quiet=False, debug=False):
     """Run IPython shell -> %reload_ext mpmd"""
-    mp = Printer(quiet=False)
-    mp.info('Use `mp` to interact, eg', suffix=':')
+    for ns in (os.environ, ipython.user_ns):
+        quiet = int(ns.get('MPMDQUIET', quiet))
+        debug = int(ns.get('MPMDDEBUG', debug))
+    mp = Printer(quiet=quiet, debug=debug)
+    mp.info("Use 'mp' to interact, eg", suffix=':')
     mp.info('>>> mp.home()', format=False)
     ipython.push({'mp': mp})
 
 
 class Printer:
     """Monoprice Mini Delta controller."""
+
+    Coordinates = collections.namedtuple('Coordinates', 'X,Y,Z')
 
     def __init__(self, *, dryrun=False, quiet=False, debug=False, pattern='/dev/cu.usbmodem*',
                  port=None, baudrate=115200, parity=serial.PARITY_NONE, **kwds):
@@ -27,23 +44,32 @@ class Printer:
             if not port:
                 raise TypeError(f"bad port pattern '{pattern}'")
 
+        kwds.update(port=port, baudrate=baudrate, parity=parity)
+        self.kwds = kwds
         #TODO: mock dryrun connection.
         self.dryrun = dryrun
-        self.quiet = quiet
-        self.debug = debug
-
-        kwds.update(port=port, baudrate=baudrate, parity=parity)
-        infos = ('Printer(', f'dryrun={dryrun}', *(f'{k}={v}' for k,v in kwds.items()), ')')
-        self.info(' '.join(infos), format=False)
-
-        self.kwds = kwds
+        self.quiet = int(quiet)
+        self.debug = int(debug)
+        #TODO: _connection method.
         self.conn = serial.Serial(**self.kwds)
         if not self.conn.is_open:
             self.conn.open()
         self.conn.setRTS(False)
         self._mesh = None
         self._homed = False
+        self._purged = []
+        self._purge_conn()
         self._init_gcode()
+
+        info1 = ('Printer:', *(f'{k}={v}' for k,v in kwds.items()))
+        info2 = f'         dryrun={self.dryrun} quiet={self.quiet} debug={self.debug}'
+        self.info(' '.join(info1), format=False)
+        self.info(info2, format=False)
+
+    def _purge_conn(self):
+        if self.conn.in_waiting:
+            self._purged.append(self.conn.read_all())
+            self.error(f'purged {len(self._purged[-1])} bytes')
 
     def _init_gcode(self):
         # Absolute positioning.
@@ -52,6 +78,8 @@ class Printer:
         self.write('G21')
         # Default movement speed.
         self.write('G1', F=3000)
+        # Detect if already homed.
+        self._homed = sum(self.xyz) != 0
 
     def G28(self, **kwds):
         read = self.write('G28', **kwds)
@@ -60,7 +88,7 @@ class Printer:
 
     def M421(self, **kwds):
         read = self.write('M421', **kwds)
-        if self._mesh is None and (not kwds or kwds == {'E': True}):
+        if not kwds or kwds == {'E': True}:
             lines = read.strip().split('\n')[:-1]
             mesh = [[0.0]*7 for n in range(7)]
             for J, line in enumerate(lines):
@@ -102,7 +130,7 @@ class Printer:
     def xyz(self):
         """Fetch current coords."""
         line = self.write('M114').split('\n')[0]
-        xyz = tuple(float(dim[2:]) for dim in line.split(' ', 3)[:3])
+        xyz = self.Coordinates(*(float(dim[2:]) for dim in line.split(' ', 3)[:3]))
         return xyz
 
     @xyz.setter
@@ -110,44 +138,47 @@ class Printer:
         """Move to XYZ coords."""
         self.move(xyz)
 
-    def info(self, line,  prefix=' ## ', suffix='.', format=str.capitalize, **kwds):
+    def info(self, *lines, prefix=' ## ', suffix='.', format=True, **kwds):
         if not self.quiet:
-            self.log(line, prefix=prefix, suffix=suffix, format=format, **kwds)
+            self.log(*lines, prefix=prefix, suffix=suffix, format=format, **kwds)
 
-    def warn(self, line,  prefix=' ?? ', suffix='.', format=str.capitalize, **kwds):
-        self.log(line, prefix=prefix, suffix=suffix, format=format, **kwds)
+    def warn(self, *lines, prefix=' ?? ', suffix='.', format=True, **kwds):
+        self.log(*lines, prefix=prefix, suffix=suffix, format=format, **kwds)
 
-    def error(self, line, prefix=' !! ', suffix='!', format=str.capitalize, **kwds):
-        self.log(line, prefix=prefix, suffix=suffix, format=format, **kwds)
+    def error(self, *lines, prefix=' !! ', suffix='!', format=True, **kwds):
+        self.log(*lines, prefix=prefix, suffix=suffix, format=format, **kwds)
 
-    def log(self, line, end='\n', prefix='', suffix='', format=None):
-        if format is None:
-            print(f'{line}', end=end, file=sys.stderr)
-        elif format is False:
-            print(f'{prefix}{line}', end=end, file=sys.stderr)
-        else:
-            print(f'{prefix}{format(line)}{suffix}', end=end, file=sys.stderr)
+    def log(self, *lines, end='\n', prefix='', suffix='', format=None):
+        for line in lines:
+            if format is True:
+                line = prefix + line[:1].upper() + line[1:] + suffix
+            elif format is False:
+                line = prefix + line
+            elif format is not None:
+                line = prefix + format(line) + suffix
+            print(line, end=end, file=sys.stderr)
 
-    def write(self, op, **pvs):
+    def write(self, op, *, comment=None, **pvs):
         """Write gcode to connection."""
-        gcode = self.gcode(op, **pvs)
+        if comment is None:
+            comment = GCODES.get(op)
+        gcode = self.gcode(op, comment=comment, **pvs)
         if not gcode:
             call = ', '.join((op, *(f"{p}={v}" for p,v in pvs.items())))
             self.error(f'gcode({call}) -> ()', format=False)
             return None
 
-        if self.debug:
-            self.log(f'>>> {b" ".join(gcode[:-1]).decode()}', format=False)
+        if self.debug > 0:
+            self.log(f'>>>> {b" ".join(gcode).decode().rstrip()}', format=None)
 
         if self.dryrun:
             return None
 
+        self._purge_conn()
         for code in gcode:
             self.conn.write(code)
 
         read = self.read(caller=(op, pvs, gcode))
-        if self.debug:
-            self.log(read, end='', format=False)
         return read
 
     def read(self, lines=None, caller=None, until=None):
@@ -162,7 +193,12 @@ class Printer:
             read = b''.join(self.conn.readline() for line in range(lines))
         else:
             read = self.conn.read_all()
-        return read.decode()
+
+        read = read.decode()
+        if self.debug > 1:
+            self.log(read, end='', format=None)
+
+        return read
 
     def gconv(self, op, param, value):
         """Convert (param, value) pair to string."""
@@ -174,9 +210,10 @@ class Printer:
             return f'{param}{format(value, "d")}'
         return f'{param}{value}'
 
-    def gcode(self, op, **pvs):
+    def gcode(self, op, *, comment=None, **pvs):
         """Convert (op, params) to gcode IO list."""
-        gcode = (op.encode(), *(self.gconv(op, *pv).encode() for pv in pvs.items()), b'\n')
+        end = (b'\n',) if comment is None else (b';', comment.encode(), b'\n')
+        gcode = (op.encode(), *(self.gconv(op, *pv).encode() for pv in pvs.items()), *end)
         return gcode
 
     def home(self):
@@ -227,77 +264,101 @@ class Printer:
 
         mesh = self.mesh
         if mesh[0][0] == 0:
-            self.warn(f"Missing expected mesh data, try 'G29 P2 V4'", format=False)
+            self.warn(f"missing expected mesh data, try 'G29 P2 V4'")
             return self
 
-        save = mesh[I][J]
-        if save < -0.5 or save > 0.5:
-            self.warn(f"Unsafe mesh data, try 'G29 P2 V4'", format=False)
+        reset = mesh[I][J]
+        if reset < -0.5 or reset > 0.5:
+            self.warn(f"unsafe mesh data '{reset}', try 'G29 P2 V4'")
             return self
 
         self.info(f'leveling mesh offset at ({I},{J})')
         self.move(self.bed(I=I, J=J), F=F)
 
-        back = None
+        here = self.xyz
+        back = here
         choice = None
         while choice != 'q':
+            offset = round(here.Z - gauge, 3)
+            step = round(min(max(abs(here.Z / steps), 0.01), 10.0), 3)
+            down = round(here.Z - step, 3)
+            up = round(here.Z + step, 3)
 
-            if choice in ('h', '?'):
-                self.info(f'nozzle at {Z}mm, next movement is {step}mm, gauge is {gauge}mm')
-                self.info(f' [u]p     move up to {Zmax}mm')
-                self.info(f' [d]own   move down to {Zmin}mm')
-                self.info(f' [b]ack   back to {back}mm')
-                self.info(f' [s]et    set to {Z}mm [-{gauge}mm gauge]')
-                self.info(f" [r]eset  reset to {save}mm")
-                self.info(f' [q]uit   quit leveling ({I},{J})')
-                self.info(f' [h]elp   display this message')
-            elif choice == 'u':
-                self.info(f" [u]p to {Zmax}mm")
-                self.G1(Z=Zmax)
-                back = Z
-            elif choice == 'd':
-                self.info(f" [d]own to {Zmin}mm")
-                self.G1(Z=Zmin)
-                back = Z
-            elif choice == 'b':
-                self.info(f" [b]ack to {back}mm")
-                self.G1(Z=back)
-                back = Z
-            elif choice == 'r':
-                self.info(f" [r]eset to {save}mm")
-                self.M421(I=I, J=J, Z=save+0.001)
+            # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
+            choice = 'h' if choice is None else input(
+                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]eset [q]uit? {here.Z}/{step} '
+            ) or choice
+
+            if choice in ('h', '?', 'help'):
+                self.info(f'nozzle at {here.Z}mm, next movement is {step}mm, gauge is {gauge}mm')
+                self.info(f'  help    display this message')
+                self.info(f'  up      up to {up}mm')
+                self.info(f'  down    down to {down}mm')
+                self.info(f'  back    back to {back.Z}mm')
+                self.info(f'  set     set to {offset}mm')
+                self.info(f"  reset   reset to {reset}mm")
+                self.info(f'  quit    quit ({I},{J}) and keep {self.mesh[I][J]}mm')
+                continue
+
+            if choice in ('u', 'up'):
+                self.info(f"nozzle up to {up}mm")
+                self.G1(Z=up)
+                back, here = here, self.xyz
+                continue
+
+            if choice in ('d', 'down'):
+                self.info(f"nozzle down to {down}mm")
+                self.G1(Z=down)
+                back, here = here, self.xyz
+                continue
+
+            if choice in ('b', 'back'):
+                self.info(f"nozzle back to {back.Z}mm")
+                self.G1(Z=back.Z)
+                back, here = here, self.xyz
+                continue
+
+            if choice in ('s', 'set'):
+                self.info(f"mesh set to {offset}mm")
+                self.M421(I=I, J=J, Z=offset+0.001)
+                self.M421(E=True)
+                choice = None
+                continue
+
+            if choice in ('r', 'reset'):
+                self.info(f"mesh reset to {reset}mm")
+                self.M421(I=I, J=J, Z=reset+0.001)
                 self.M421(E=True)
                 self.xyz = self.bed(I=I, J=J)
+                back, here = here, self.xyz
                 choice = None
-                back = None
-            elif choice == 's':
-                self.info(f" [s]et to {Z}mm [-{gauge}mm gauge]")
-                self.M421(I=I, J=J, Z=Z-gauge+0.001)
-                self.M421(E=True)
+                continue
 
-            (*XY, Z) = self.xyz
-            back = Z if back is None else back
-            step = abs(round(Z / steps, 3))
-            Zmin = round(Z - step, 3)
-            Zmax = round(Z + step, 3)
-            # Set choice=h on first pass, then start prompting user; no choice == last choice.
-            choice = 'h' if choice is None else input(
-                '<<<< [h]elp [u]p [d]own [r]eset [s]et [q]uit? ') or choice
+            if choice in ('x', 'xdebug', 'debug'):
+                self.debug = int(choice == 'debug' or not self.debug)
+                self.info(f"debug set to {self.debug}")
+                continue
 
         self.xyz = self.bed(I=I, J=J)
         self.info(f'done leveling bed mesh offset ({I},{J})')
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Leveler.')
-    parser.add_argument('--dryrun', help='dryrun', action='store_true')
-    parser.add_argument('--quiet', help='quiet', action='store_true')
-    parser.add_argument('--debug', help='debug', action='store_true')
-    parser.add_argument('--port', help='serial port')
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser(description='Monoprice Mini Delta Leveler.')
+    parser.add_argument('--level', help='level mesh offset(s)', metavar='IJ', nargs='?', const='33')
+    parser.add_argument('--port', help='serial port name or path')
+    parser.add_argument('--home', help='home print head', action='store_true')
+    parser.add_argument('--dryrun', '-n',  help='do not run gcode', action='store_true')
+    parser.add_argument('--debug', '-d', help='increase verbosity', action='count', default=0)
 
-    with Printer(dryrun=args.dryrun, quiet=args.quiet, debug=args.debug, port=args.port) as p:
-        p.M421()
+    args = parser.parse_args()
+    with Printer(dryrun=args.dryrun, debug=args.debug, port=args.port) as printer:
+        if args.home:
+            printer.home()
+        if args.level:
+            I, J = int(args.level[0]), int(args.level[-1])
+            printer.level(I, J)
+            printer.M500()
 
 
 if __name__ == '__main__':
