@@ -64,10 +64,11 @@ class Printer:
         self._purge_conn()
         self._init_gcode()
 
-        info1 = ('Printer:', *(f'{k}={v}' for k,v in kwds.items()))
-        info2 = f'         dryrun={self.dryrun} quiet={self.quiet} debug={self.debug}'
-        self.info(' '.join(info1), format=False)
-        self.info(info2, format=False)
+        if self.debug:
+            info1 = ('Printer:', *(f'{k}={v}' for k,v in kwds.items()))
+            info2 = f'         dryrun={self.dryrun} quiet={self.quiet} debug={self.debug}'
+            self.info(' '.join(info1), format=False)
+            self.info(info2, format=False)
 
     def _purge_conn(self):
         if self.conn.in_waiting:
