@@ -358,9 +358,10 @@ class Printer:
 
 def main():
     parser = argparse.ArgumentParser(description='Monoprice Mini Delta Leveler.')
-    parser.add_argument('--level', help='level mesh offset(s)', metavar='IJ', nargs='?', const='33')
-    parser.add_argument('--port', help='serial port name or path')
     parser.add_argument('--home', help='home print head', action='store_true')
+    parser.add_argument('--level', help='level mesh offset', metavar='IJ', nargs='?', const='33')
+    parser.add_argument('--gauge', help='gauge thickness', metavar='MM', default=0.1, type=float)
+    parser.add_argument('--port', help='serial port name or path')
     parser.add_argument('--dryrun', '-n',  help='do not run gcode', action='store_true')
     parser.add_argument('--debug', '-d', help='increase verbosity', action='count', default=0)
 
@@ -370,8 +371,12 @@ def main():
             printer.home()
         if args.level:
             I, J = int(args.level[0]), int(args.level[-1])
-            printer.level(I, J)
-            printer.M500()
+            try:
+                printer.level(I, J, gauge=args.gauge)
+            except:
+                raise
+            else:
+                printer.M500()
 
 
 if __name__ == '__main__':
