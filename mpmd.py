@@ -297,7 +297,7 @@ class Printer:
 
             if choice in ('h', '?', 'help'):
                 self.info(f'nozzle at {here.Z}mm, steps is {usteps} @ {step}mm, gauge is {gauge}mm')
-                self.info(f'  +/-    change steps')
+                self.info(f'  +/-    change step size')
                 self.info(f'  up     up to {up}mm')
                 self.info(f'  down   down to {down}mm')
                 self.info(f'  back   back to {back.Z}mm')
@@ -308,13 +308,13 @@ class Printer:
                 continue
 
             if choice in ('+', '='):
-                usteps = min(6, usteps + 1)
-                self.info(f"steps set to {usteps}")
+                usteps = max(2, usteps - 1)
+                self.info(f"steps set to {usteps} (increases size)")
                 continue
 
             if choice in ('-',):
-                usteps = max(2, usteps - 1)
-                self.info(f"steps set to {usteps}")
+                usteps = min(6, usteps + 1)
+                self.info(f"steps set to {usteps} (decreases size)")
                 continue
 
             if choice in ('u', 'up'):
