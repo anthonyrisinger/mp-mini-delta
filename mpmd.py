@@ -302,7 +302,7 @@ class Printer:
                 self.info(f'  help   show this message')
                 continue
 
-            if choice in ('+',):
+            if choice in ('+', '='):
                 usteps = min(6, usteps + 1)
                 self.info(f"steps set to {usteps}")
                 continue
