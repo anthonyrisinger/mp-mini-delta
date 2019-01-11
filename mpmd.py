@@ -277,27 +277,39 @@ class Printer:
 
         here = self.xyz
         back = here
+        usteps = steps
         choice = None
         while choice != 'q':
             offset = round(here.Z - gauge, 3)
-            step = round(min(max(abs(here.Z / steps), 0.01), 10.0), 3)
+            step = round(min(max(abs(here.Z / usteps), 0.01), 10.0), 3)
             down = round(here.Z - step, 3)
             up = round(here.Z + step, 3)
 
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
             choice = 'h' if choice is None else input(
-                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]eset [q]uit? {here.Z}/{step} '
+                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]eset [q]uit? {usteps}/{step}/{here.Z} '
             ) or choice
 
             if choice in ('h', '?', 'help'):
-                self.info(f'nozzle at {here.Z}mm, next movement is {step}mm, gauge is {gauge}mm')
-                self.info(f'  help    display this message')
-                self.info(f'  up      up to {up}mm')
-                self.info(f'  down    down to {down}mm')
-                self.info(f'  back    back to {back.Z}mm')
-                self.info(f'  set     set to {offset}mm')
-                self.info(f"  reset   reset to {reset}mm")
-                self.info(f'  quit    quit ({I},{J}) and keep {self.mesh[I][J]}mm')
+                self.info(f'nozzle at {here.Z}mm, steps is {usteps} @ {step}mm, gauge is {gauge}mm')
+                self.info(f'  +/-    change steps')
+                self.info(f'  up     up to {up}mm')
+                self.info(f'  down   down to {down}mm')
+                self.info(f'  back   back to {back.Z}mm')
+                self.info(f'  set    set to {offset}mm')
+                self.info(f"  redo   redo ({I},{J}) - reset {reset}mm")
+                self.info(f'  quit   quit ({I},{J}) - keep {self.mesh[I][J]}mm')
+                self.info(f'  help   show this message')
+                continue
+
+            if choice in ('+',):
+                usteps = min(6, usteps + 1)
+                self.info(f"steps set to {usteps}")
+                continue
+
+            if choice in ('-',):
+                usteps = max(2, usteps - 1)
+                self.info(f"steps set to {usteps}")
                 continue
 
             if choice in ('u', 'up'):
@@ -325,12 +337,13 @@ class Printer:
                 choice = None
                 continue
 
-            if choice in ('r', 'reset'):
+            if choice in ('r', 'redo'):
                 self.info(f"mesh reset to {reset}mm")
                 self.M421(I=I, J=J, Z=reset+0.001)
                 self.M421(E=True)
                 self.xyz = self.bed(I=I, J=J)
                 back, here = here, self.xyz
+                usteps = steps
                 choice = None
                 continue
 
