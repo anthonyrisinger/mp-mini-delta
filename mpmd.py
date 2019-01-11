@@ -281,7 +281,7 @@ class Printer:
         choice = None
         while choice != 'q':
             offset = round(here.Z - gauge, 3)
-            step = round(min(max(abs(here.Z / usteps), 0.01), 10.0), 3)
+            step = round(min(max(abs((here.Z - gauge) / usteps), 0.01), 10.0), 3)
             down = round(here.Z - step, 3)
             up = round(here.Z + step, 3)
 
