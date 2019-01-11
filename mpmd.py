@@ -287,7 +287,7 @@ class Printer:
 
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
             choice = 'h' if choice is None else input(
-                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]eset [q]uit? {usteps}/{step}/{here.Z} '
+                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]eset [q]uit? {usteps}/{step}/{here.Z}mm '
             ) or choice
 
             if choice in ('h', '?', 'help'):
