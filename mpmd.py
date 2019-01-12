@@ -295,10 +295,12 @@ class Printer:
             down = round(here.Z - step, 2)
             up = round(here.Z + step, 2)
 
+            # TODO: Fine... use decimals.
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
-            choice = 'h' if choice is None else input(
-                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]edo [q]uit? {usteps}/{step}/{here.Z}mm '
-            ) or choice
+            notice = '[%+.2f] ' % reset if probed != reset else ''
+            prompt = f'<<< %d @ %.2fmm / %s%+.2f / %.2fmm %+.2f [+-23456sudbzhrq]? [%s] ' % (
+                usteps, step, notice, probed, here.Z, offset, choice)
+            choice = 'h' if choice is None else input(prompt) or choice
 
             if choice in ('h', '?', 'help'):
                 self.info(f'nozzle at {here.Z}mm'
