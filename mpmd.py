@@ -391,28 +391,50 @@ def main():
     with Printer(dryrun=args.dryrun, debug=args.debug, port=args.port) as printer:
         if args.home:
             printer.home()
+
         if args.level:
             if args.level is True:
-                probes = Printer.probes
+                probes = [*Printer.probes]
+                probes.reverse()
             else:
-                probes = ((int(args.level[0]), int(args.level[-1])),)
-            for I, J in probes:
+                probes = [(int(args.level[0]), int(args.level[-1]))]
+
+            choice = None
+            while choice not in ('q', 'quit') and probes:
+                I, J = probe = probes.pop()
                 offset = printer.mesh[I][J]
-                choice = input(f'<<< [c]ontinue [s]kip [q]uit leveling bed mesh ({I},{J})? {offset} ')
-                if choice in ('q', 'quit'):
-                    break
+                printer.xyz = printer.bed(I=I, J=J)
+                while choice not in ('q', 'quit'):
+                    # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
+                    choice = 'h' if choice is None else input(
+                        f'<<< [l]evel [z]ero [s]kip [q]uit mesh {probe} [{offset}]? '
+                    ) or choice
 
-                if choice in ('s', 'n', 'q', 'skip', 'no', 'quit'):
-                    continue
+                    if choice in ('s', 'n', 'skip', 'no'):
+                        printer.info('SKIP')
+                        break
 
-                try:
-                    printer.level(I, J, gauge=args.gauge)
-                except Exception as e:
-                    printer.error(f"level({I},{J}) raised '{e}'", suffix=':')
-                    traceback.print_exc()
-                else:
-                    printer.info('writing to SD Card')
-                    printer.M500()
+                    if choice in ('h', 'help'):
+                        printer.info('HELP')
+                        continue
+
+                    if choice in ('z', 'zero'):
+                        printer.info('ZERO')
+                        printer.xyz = printer.bed(I=I, J=J, Z=args.gauge)
+                        choice = None
+                        continue
+
+                    if choice in ('l', 'y', 'level', 'yes'):
+                        try:
+                            printer.level(I, J, gauge=args.gauge)
+                        except Exception as e:
+                            printer.error(f"level({I},{J}) raised '{e}'", suffix=':')
+                            traceback.print_exc()
+                        else:
+                            printer.info('writing to SD Card')
+                            printer.M500()
+                            break
+
             if args.home:
                 printer.home()
 
