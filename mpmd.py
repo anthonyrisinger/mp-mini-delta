@@ -259,25 +259,25 @@ class Printer:
         return (X, Y, Z)
 
     def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3):
+        IJ  = (I, J)
         if I < 0 or I > 6 or J < 0 or J > 6:
-            self.warn(f'mesh offset at ({I},{J}) out of bounds')
+            self.warn(f'mesh offset at {IJ} out of bounds')
             return self
 
         if abs(3 - I) + abs(3 - J) > 3:
-            self.warn(f'mesh offset at ({I},{J}) cannot be leveled')
+            self.warn(f'mesh offset at {IJ} cannot be leveled')
             return self
 
-        mesh = self.mesh
-        if mesh[0][0] == 0:
+        if self.mesh[0][0] == 0:
             self.warn(f"missing expected mesh data, try 'G29 P2 V4'")
             return self
 
-        reset = mesh[I][J]
+        reset = self.mesh[I][J]
         if reset < -0.5 or reset > 0.5:
             self.warn(f"unsafe mesh data '{reset}', try 'G29 P2 V4'")
             return self
 
-        self.info(f'leveling mesh offset at ({I},{J})')
+        self.info(f'leveling mesh offset at {IJ}')
         self.move(self.bed(I=I, J=J), F=F)
 
         here = self.xyz
@@ -285,6 +285,7 @@ class Printer:
         usteps = steps
         choice = None
         while choice != 'q':
+            probed = self.mesh[I][J]
             offset = round(here.Z - gauge, 3)
             step = round(min(max(abs((here.Z - gauge) / usteps), 0.01), 10.0), 3)
             down = round(here.Z - step, 3)
@@ -298,12 +299,14 @@ class Printer:
             if choice in ('h', '?', 'help'):
                 self.info(f'nozzle at {here.Z}mm, steps is {usteps} @ {step}mm, gauge is {gauge}mm')
                 self.info(f'  +/-    change step size')
+                self.info(f'  2-6    change step count')
                 self.info(f'  up     up to {up}mm')
                 self.info(f'  down   down to {down}mm')
                 self.info(f'  back   back to {back.Z}mm')
+                self.info(f"  zero   move to {gauge}mm")
                 self.info(f'  set    set to {offset}mm')
-                self.info(f"  redo   redo ({I},{J}) - reset {reset}mm")
-                self.info(f'  quit   quit ({I},{J}) - keep {self.mesh[I][J]}mm')
+                self.info(f"  redo   restore {reset}mm and try again")
+                self.info(f'  quit   keep at {probed}mm and quit')
                 self.info(f'  help   show this message')
                 continue
 
@@ -315,6 +318,11 @@ class Printer:
             if choice in ('-',):
                 usteps = min(6, usteps + 1)
                 self.info(f"steps set to {usteps} (decreases size)")
+                continue
+
+            if choice in ('2', '3', '4', '5', '6'):
+                usteps = int(choice)
+                self.info(f"steps set to {usteps}")
                 continue
 
             if choice in ('u', 'up'):
@@ -332,6 +340,12 @@ class Printer:
             if choice in ('b', 'back'):
                 self.info(f"nozzle back to {back.Z}mm")
                 self.G1(Z=back.Z)
+                back, here = here, self.xyz
+                continue
+
+            if choice in ('z', 'zero'):
+                self.info(f"nozzle zeroed to {gauge}mm")
+                self.G1(Z=gauge)
                 back, here = here, self.xyz
                 continue
 
