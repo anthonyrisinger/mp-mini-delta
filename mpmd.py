@@ -293,7 +293,7 @@ class Printer:
 
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
             choice = 'h' if choice is None else input(
-                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]eset [q]uit? {usteps}/{step}/{here.Z}mm '
+                f'<<< [h]elp [u]p [d]own [b]ack [s]et [r]edo [q]uit? {usteps}/{step}/{here.Z}mm '
             ) or choice
 
             if choice in ('h', '?', 'help'):
@@ -395,7 +395,10 @@ def main():
                 probes = ((int(args.level[0]), int(args.level[-1])),)
             for I, J in probes:
                 offset = printer.mesh[I][J]
-                choice = input(f'<<< [c]ontinue [s]kip leveling bed mesh ({I},{J})? {offset} ')
+                choice = input(f'<<< [c]ontinue [s]kip [q]uit leveling bed mesh ({I},{J})? {offset} ')
+                if choice in ('q', 'quit'):
+                    break
+
                 if choice in ('s', 'n', 'q', 'skip', 'no', 'quit'):
                     continue
 
