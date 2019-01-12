@@ -256,7 +256,7 @@ class Printer:
         assert J >= 0 and J <= 6
         X = (I - 3) * 15.0 + X
         Y = (J - 3) * 15.0 + Y
-        return (X, Y, Z)
+        return self.Coordinates(X, Y, Z)
 
     def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3):
         IJ  = (I, J)
