@@ -278,16 +278,20 @@ class Printer:
             return self
 
         self.info(f'leveling mesh offset at {IJ}')
-        self.move(self.bed(I=I, J=J), F=F)
+        self.G1(F=F)
 
         here = self.xyz
+        safe = self.bed(I=I, J=J)
+        gauge = self.bed(I=I, J=J, Z=gauge)
+        if here.X != safe.X or here.Y != safe.Y or here.Z > safe.Z:
+            self.xyz, here = safe, self.xyz
         back = here
         usteps = steps
         choice = None
         while choice not in ('q', 'quit'):
             probed = self.mesh[I][J]
-            offset = round(here.Z - gauge, 2)
-            step = round(min(max(abs((here.Z - gauge) / usteps), 0.03), 10.0), 2)
+            offset = round(here.Z - gauge.Z, 2)
+            step = round(min(max(abs((here.Z - gauge.Z) / usteps), 0.03), 10.0), 2)
             down = round(here.Z - step, 2)
             up = round(here.Z + step, 2)
 
@@ -297,14 +301,16 @@ class Printer:
             ) or choice
 
             if choice in ('h', '?', 'help'):
-                self.info(f'nozzle at {here.Z}mm, steps is {usteps} @ {step}mm, gauge is {gauge}mm')
+                self.info(f'nozzle at {here.Z}mm'
+                          f' with {usteps} steps @ {step}mm'
+                          f' to reach {gauge.Z}mm gauge')
                 self.info(f'  +/-    change step size')
                 self.info(f'  2-6    change step count')
                 self.info(f'  set    adjust by {"%+.2f" % offset}mm')
                 self.info(f'  up     up to {up}mm')
                 self.info(f'  down   down to {down}mm')
                 self.info(f'  back   back to {back.Z}mm')
-                self.info(f"  zero   move to {gauge}mm")
+                self.info(f"  zero   move to {gauge.Z}mm")
                 self.info(f'  help   show this message')
                 self.info(f"  redo   restore {reset}mm and try again")
                 self.info(f'  quit   keep at {probed}mm and quit {IJ}')
@@ -344,8 +350,8 @@ class Printer:
                 continue
 
             if choice in ('z', 'zero'):
-                self.info(f"nozzle zeroed to {gauge}mm")
-                self.G1(Z=gauge)
+                self.info(f"nozzle zeroed to {gauge.Z}mm")
+                self.G1(Z=gauge.Z)
                 back, here = here, self.xyz
                 continue
 
@@ -353,7 +359,7 @@ class Printer:
                 self.info(f"{IJ} adjusted by {'%+.2f' % offset}mm")
                 self.M421(I=I, J=J, Q=offset+0.001)
                 self.M421(E=True)
-                self.G1(Z=gauge)
+                self.G1(Z=gauge.Z)
                 back = back._replace(Z=round(back.Z - offset, 2))
                 here = self.xyz
                 choice = None
