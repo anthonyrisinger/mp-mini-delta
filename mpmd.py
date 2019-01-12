@@ -298,16 +298,16 @@ class Printer:
 
             if choice in ('h', '?', 'help'):
                 self.info(f'nozzle at {here.Z}mm, steps is {usteps} @ {step}mm, gauge is {gauge}mm')
-                self.info(f'  +/-    change step size')
-                self.info(f'  2-6    change step count')
+                self.info(f'  set    adjust {"%+.2f" % offset}mm')
                 self.info(f'  up     up to {up}mm')
                 self.info(f'  down   down to {down}mm')
                 self.info(f'  back   back to {back.Z}mm')
                 self.info(f"  zero   move to {gauge}mm")
-                self.info(f'  set    set to {offset}mm')
-                self.info(f"  redo   restore {reset}mm and try again")
-                self.info(f'  quit   keep at {probed}mm and quit')
+                self.info(f'  +/-    change step size')
+                self.info(f'  2-6    change step count')
                 self.info(f'  help   show this message')
+                self.info(f"  redo   restore {reset}mm and try again")
+                self.info(f'  quit   keep at {probed}mm and quit {IJ}')
                 continue
 
             if choice in ('+', '='):
