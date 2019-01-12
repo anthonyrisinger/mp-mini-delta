@@ -350,9 +350,12 @@ class Printer:
                 continue
 
             if choice in ('s', 'set'):
-                self.info(f"mesh set to {offset}mm")
-                self.M421(I=I, J=J, Z=offset+0.001)
+                self.info(f"{IJ} adjusted by {'%+.2f' % offset}mm")
+                self.M421(I=I, J=J, Q=offset+0.001)
                 self.M421(E=True)
+                self.G1(Z=gauge)
+                back = back._replace(Z=round(back.Z - offset, 2))
+                here = self.xyz
                 choice = None
                 continue
 
