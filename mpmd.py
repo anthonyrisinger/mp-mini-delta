@@ -284,7 +284,7 @@ class Printer:
         back = here
         usteps = steps
         choice = None
-        while choice != 'q':
+        while choice not in ('q', 'quit'):
             probed = self.mesh[I][J]
             offset = round(here.Z - gauge, 2)
             step = round(min(max(abs((here.Z - gauge) / usteps), 0.03), 10.0), 2)
@@ -298,13 +298,13 @@ class Printer:
 
             if choice in ('h', '?', 'help'):
                 self.info(f'nozzle at {here.Z}mm, steps is {usteps} @ {step}mm, gauge is {gauge}mm')
-                self.info(f'  set    adjust {"%+.2f" % offset}mm')
+                self.info(f'  +/-    change step size')
+                self.info(f'  2-6    change step count')
+                self.info(f'  set    adjust by {"%+.2f" % offset}mm')
                 self.info(f'  up     up to {up}mm')
                 self.info(f'  down   down to {down}mm')
                 self.info(f'  back   back to {back.Z}mm')
                 self.info(f"  zero   move to {gauge}mm")
-                self.info(f'  +/-    change step size')
-                self.info(f'  2-6    change step count')
                 self.info(f'  help   show this message')
                 self.info(f"  redo   restore {reset}mm and try again")
                 self.info(f'  quit   keep at {probed}mm and quit {IJ}')
@@ -357,7 +357,7 @@ class Printer:
                 continue
 
             if choice in ('r', 'redo'):
-                self.info(f"mesh reset to {reset}mm")
+                self.info(f"{IJ} reset to {reset}mm")
                 self.M421(I=I, J=J, Z=reset+0.001)
                 self.M421(E=True)
                 self.xyz = self.bed(I=I, J=J)
@@ -372,7 +372,7 @@ class Printer:
                 continue
 
         self.xyz = self.bed(I=I, J=J)
-        self.info(f'done leveling bed mesh offset ({I},{J})')
+        self.info(f'done leveling mesh offset {IJ}')
 
 
 def main():
