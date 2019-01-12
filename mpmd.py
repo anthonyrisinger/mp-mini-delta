@@ -286,10 +286,10 @@ class Printer:
         choice = None
         while choice != 'q':
             probed = self.mesh[I][J]
-            offset = round(here.Z - gauge, 3)
-            step = round(min(max(abs((here.Z - gauge) / usteps), 0.01), 10.0), 3)
-            down = round(here.Z - step, 3)
-            up = round(here.Z + step, 3)
+            offset = round(here.Z - gauge, 2)
+            step = round(min(max(abs((here.Z - gauge) / usteps), 0.03), 10.0), 2)
+            down = round(here.Z - step, 2)
+            up = round(here.Z + step, 2)
 
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
             choice = 'h' if choice is None else input(
