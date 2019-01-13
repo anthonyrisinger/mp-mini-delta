@@ -258,7 +258,7 @@ class Printer:
         Y = (J - 3) * 15.0 + Y
         return self.Coordinates(X, Y, Z)
 
-    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3):
+    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3, choice=None):
         IJ  = (I, J)
         if I < 0 or I > 6 or J < 0 or J > 6:
             self.warn(f'mesh offset at {IJ} out of bounds')
@@ -287,7 +287,6 @@ class Printer:
             self.xyz, here = safe, self.xyz
         back = here
         usteps = steps
-        choice = None
         while choice not in ('q', 'quit'):
             probed = self.mesh[I][J]
             offset = round(here.Z - zero.Z, 2)
