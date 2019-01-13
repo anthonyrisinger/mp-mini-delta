@@ -298,7 +298,7 @@ class Printer:
             # TODO: Fine... use decimals.
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
             notice = '[%+.2f] ' % reset if probed != reset else ''
-            prompt = f'<<< %d @ %.2fmm / %s%+.2f / %.2fmm %+.2f [+-23456sudbzhrq]? [%s] ' % (
+            prompt = f'<<< %d @ %.2fmm / %s%+.2f / %.2fmm %+.2f [-+2-6sudbzhrq]? [%s] ' % (
                 usteps, step, notice, probed, here.Z, offset, choice)
             choice = 'h' if choice is None else input(prompt) or choice
 
