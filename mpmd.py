@@ -259,24 +259,20 @@ class Printer:
         Y = (J - 3) * 15.0 + Y
         return self.Coordinates(X, Y, Z)
 
-    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3, choice=None):
+    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3, choice=None, next=None):
         IJ  = (I, J)
-        if I < 0 or I > 6 or J < 0 or J > 6:
-            self.warn(f'mesh offset at {IJ} out of bounds')
-            return self
-
-        if abs(3 - I) + abs(3 - J) > 3:
+        if IJ not in self.probes:
             self.warn(f'mesh offset at {IJ} cannot be leveled')
-            return self
+            return None, None, None
 
         if self.mesh[0][0] == 0:
             self.warn(f"missing expected mesh data, try 'G29 P2 V4'")
-            return self
+            return None, None, None
 
         reset = self.mesh[I][J]
         if reset < -0.5 or reset > 0.5:
             self.warn(f"unsafe mesh data '{reset}', try 'G29 P2 V4'")
-            return self
+            return None, None, None
 
         self.info(f'leveling mesh offset at {IJ}')
         self.G1(F=F)
@@ -288,7 +284,9 @@ class Printer:
             self.xyz, here = safe, self.xyz
         back = here
         usteps = steps
-        while choice not in ('q', 'quit'):
+        probed = None
+        breaks = ('q', 'quit', 'n', 'next') if next else ('q', 'quit')
+        while probed is None or choice not in breaks:
             probed = self.mesh[I][J]
             offset = round(here.Z - zero.Z, 2)
             step = round(min(max(abs((here.Z - zero.Z) / usteps), 0.03), 10.0), 2)
@@ -298,24 +296,26 @@ class Printer:
             # TODO: Fine... use decimals.
             # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
             notice = '[%+.2f] ' % reset if probed != reset else ''
-            prompt = f'<<< %d @ %.2fmm / %s%+.2f / %.2fmm %+.2f [-+2-6sudbzhrq]? [%s] ' % (
-                usteps, step, notice, probed, here.Z, offset, choice)
+            prompt = f'<<< %d @ %.2fmm / %s%+.2f / %.2fmm %+.2f [-+23456sudbzr%sq]? [%s] ' % (
+                usteps, step, notice, probed, here.Z, offset, 'n' if next else '', choice)
             choice = 'h' if choice is None else input(prompt) or choice
 
             if choice in ('h', '?', 'help'):
                 self.info(f'nozzle at {here.Z}mm'
                           f' with {usteps} steps @ {step}mm'
                           f' to reach {zero.Z}mm gauge')
-                self.info(f'  +/-    change step size')
+                self.info(f'  help   show this message')
+                self.info(f'  -/+    change step size')
                 self.info(f'  2-6    change step count')
                 self.info(f'  set    adjust by {"%+.2f" % offset}mm')
                 self.info(f'  up     up to {up}mm')
                 self.info(f'  down   down to {down}mm')
                 self.info(f'  back   back to {back.Z}mm')
                 self.info(f"  zero   move to {zero.Z}mm")
-                self.info(f'  help   show this message')
                 self.info(f"  redo   restore {reset}mm and try again")
-                self.info(f'  quit   keep at {probed}mm and quit {IJ}')
+                if next:
+                    self.info(f'  next   keep leveled {IJ} and start on {next}')
+                self.info(f'  quit   keep leveled {IJ} and exit')
                 continue
 
             if choice in ('+', '='):
@@ -384,6 +384,7 @@ class Printer:
 
         self.xyz = self.bed(I=I, J=J)
         self.info(f'done leveling mesh offset {IJ}')
+        return choice, reset, probed
 
 
 def main():
@@ -402,46 +403,33 @@ def main():
 
         if args.level:
             if args.level is True:
-                probes = [*Printer.probes]
-                probes.reverse()
+                probes = [*reversed(sorted(Printer.probes))]
             else:
                 probes = [(int(args.level[0]), int(args.level[-1]))]
 
+            changes = 0
+            errors = 0
             choice = None
             while choice not in ('q', 'quit') and probes:
-                I, J = probe = probes.pop()
-                offset = printer.mesh[I][J]
-                printer.xyz = printer.bed(I=I, J=J)
-                while choice not in ('q', 'quit'):
-                    # Set choice=h on first pass and reset, else prompt user; no choice == last choice.
-                    choice = 'h' if choice is None else input(
-                        f'<<< [l]evel [z]ero [s]kip [q]uit mesh {probe} [{offset}]? '
-                    ) or choice
+                probe = probes.pop()
+                more = probes[-1] if probes else None
+                try:
+                    choice, old, new = printer.level(*probe, gauge=args.gauge, choice=choice, next=more)
+                    if old != new:
+                        printer.info(f"changed {probe} from '{old}' to '{new}'")
+                        changes += 1
+                except Exception as e:
+                    printer.error(f"level({probe}) raised '{e}'", suffix=':')
+                    traceback.print_exc()
+                    errors += 1
 
-                    if choice in ('s', 'n', 'skip', 'no'):
-                        printer.info('SKIP')
-                        break
-
-                    if choice in ('h', 'help'):
-                        printer.info('HELP')
-                        continue
-
-                    if choice in ('z', 'zero'):
-                        printer.info('ZERO')
-                        printer.xyz = printer.bed(I=I, J=J, Z=args.gauge)
-                        choice = None
-                        continue
-
-                    if choice in ('l', 'y', 'level', 'yes'):
-                        try:
-                            printer.level(I, J, gauge=args.gauge)
-                        except Exception as e:
-                            printer.error(f"level({I},{J}) raised '{e}'", suffix=':')
-                            traceback.print_exc()
-                        else:
-                            printer.info('writing to SD Card')
-                            printer.M500()
-                            break
+            if errors:
+                printer.warn('not writing to SD Card because {errors} errors raised.')
+            elif not changes:
+                printer.info('not writing to SD Card because bed mesh is unchanged')
+            else:
+                printer.info(f'writing {changes} bed mesh changes to SD Card')
+                printer.M500()
 
             if args.home:
                 printer.home()
