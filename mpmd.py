@@ -378,7 +378,7 @@ class Printer:
                 continue
 
             if choice in ('x', 'xdebug', 'debug'):
-                self.debug = int(choice == 'debug' or not self.debug)
+                self.debug = int(self.debug + 1 if self.debug < 2 else 0)
                 self.info(f"debug set to {self.debug}")
                 continue
 
