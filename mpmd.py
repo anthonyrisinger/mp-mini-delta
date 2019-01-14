@@ -30,7 +30,7 @@ def load_ipython_extension(ipython, quiet=False, debug=False):
     mp = Printer(quiet=quiet, debug=debug)
     mp.info("Use 'mp' to interact, eg", suffix=':')
     mp.info('>>> mp.home()', format=False)
-    ipython.push({'mp': mp})
+    ipython.push({'mp': mp, 'mpmd': sys.modules[__name__]})
 
 
 class Printer:
