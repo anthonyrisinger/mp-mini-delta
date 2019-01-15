@@ -259,7 +259,7 @@ class Printer:
         Y = (J - 3) * 15.0 + Y
         return self.Coordinates(X, Y, Z)
 
-    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3, choice=None, next=None):
+    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3, choice=None, next=None, fast=False):
         IJ  = (I, J)
         if IJ not in self.probes:
             self.warn(f'mesh offset at {IJ} cannot be leveled')
@@ -278,10 +278,11 @@ class Printer:
         self.G1(F=F)
 
         here = self.xyz
-        safe = self.bed(I=I, J=J)
         zero = self.bed(I=I, J=J, Z=gauge)
+        safe = zero if fast else self.bed(I=I, J=J)
         if here.X != safe.X or here.Y != safe.Y or here.Z > safe.Z:
-            self.xyz, here = safe, self.xyz
+            self.xyz = safe
+            here = self.xyz
         back = here
         usteps = steps
         probed = None
@@ -382,7 +383,7 @@ class Printer:
                 self.info(f"debug set to {self.debug}")
                 continue
 
-        self.xyz = self.bed(I=I, J=J)
+        self.xyz = safe
         self.info(f'done leveling mesh offset {IJ}')
         return choice, reset, probed
 
@@ -393,6 +394,7 @@ def main():
     parser.add_argument('--level', help='level mesh offsets', metavar='IJ', nargs='?', const=True)
     parser.add_argument('--gauge', help='gauge thickness', metavar='MM', default=0.1, type=float)
     parser.add_argument('--port', help='serial port name or path')
+    parser.add_argument('--fast', help='move directly to gauge', action='store_true')
     parser.add_argument('--dryrun', '-n',  help='do not run gcode', action='store_true')
     parser.add_argument('--debug', '-d', help='increase verbosity', action='count', default=0)
 
@@ -407,29 +409,20 @@ def main():
             else:
                 probes = [(int(args.level[0]), int(args.level[-1]))]
 
-            changes = 0
-            errors = 0
             choice = None
             while choice not in ('q', 'quit') and probes:
-                probe = probes.pop()
+                IJ = probes.pop()
                 more = probes[-1] if probes else None
                 try:
-                    choice, old, new = printer.level(*probe, gauge=args.gauge, choice=choice, next=more)
+                    choice, old, new = printer.level(*IJ, gauge=args.gauge, choice=choice,
+                        next=more, fast=args.fast)
                     if old != new:
-                        printer.info(f"changed {probe} from '{old}' to '{new}'")
-                        changes += 1
+                        printer.info(f"changed {IJ} from {old} to {new}")
+                        printer.info(f'writing {IJ} bed mesh update to SD Card')
+                        printer.M500()
                 except Exception as e:
-                    printer.error(f"level({probe}) raised '{e}'", suffix=':')
+                    printer.error(f"not writing to SD Card because {IJ} raised '{e}'", suffix=':')
                     traceback.print_exc()
-                    errors += 1
-
-            if errors:
-                printer.warn('not writing to SD Card because {errors} errors raised.')
-            elif not changes:
-                printer.info('not writing to SD Card because bed mesh is unchanged')
-            else:
-                printer.info(f'writing {changes} bed mesh changes to SD Card')
-                printer.M500()
 
             if args.home:
                 printer.home()
