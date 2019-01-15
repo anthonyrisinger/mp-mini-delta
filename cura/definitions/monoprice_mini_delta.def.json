@@ -109,7 +109,7 @@
       "default_value": true
     },
     "machine_start_gcode": {
-      "default_value": "G21;(metric values)\nG90;(absolute positioning)\nM82;(set extruder to absolute mode)\nM107;(start with the fan off)\nG28;(Home)\nG29 P0;(Level the bed.)\nG1 X55 Y0 Z5 F3000;(Move to the outside of the bed.)\nG92 E0;(reset extrusion distance)\nG1 E5 F500;(Prime.)\nG1 Z0;(Down to printing height.)\nG2 X0 Y55 I-55 J0 E20 F3000;(Draw a priming arc.)\nG1 E15 F5000;(Small retract)\nG92 E0;(zero the extruded length)\n"
+      "default_value": "G21;(metric values)\nG90;(absolute positioning)\nM82;(set extruder to absolute mode)\nM107;(start with the fan off)\nG29 P0;(Level the bed.)\nG1 X55 Y0 Z5 F3000;(Move to the outside of the bed.)\nG92 E0;(reset extrusion distance)\nG1 E5 F500;(Prime.)\nG1 Z0;(Down to printing height.)\nG2 X0 Y55 I-55 J0 E20 F3000;(Draw a priming arc.)\nG1 E15 F5000;(Small retract)\nG92 E0;(zero the extruded length)\n"
     },
     "machine_width": {
       "default_value": 110
