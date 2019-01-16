@@ -7,6 +7,7 @@ import glob
 import json
 import math
 import os
+import re
 import sys
 import traceback
 
@@ -225,6 +226,15 @@ class Printer:
     def home(self):
         """Home the printer."""
         self.move()
+
+    def probe(self):
+        results = self.write('G30')
+        for line in results.split('\n'):
+            if line.startswith('Bed'):
+                xyz = re.split(' [XYZ]: ', line)[1:]
+                xyz = self.Coordinates(*(float(dim) for dim in xyz))
+                return xyz
+        raise ValueError(results)
 
     def move(self, *args, **kwds):
         """Move to home or XYZ[EF] coords."""
