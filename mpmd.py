@@ -259,7 +259,9 @@ class Printer:
         Y = (J - 3) * 15.0 + Y
         return self.Coordinates(X, Y, Z)
 
-    def level(self, I=3, J=3, F=3000, gauge=0.1, steps=3, choice=None, next=None, fast=False):
+    def level(self, I=3, J=3, F=None, gauge=0.1, steps=3, choice=None, next=None, fast=False):
+        if F is None:
+            F = 4500 if fast else 3000
         IJ  = (I, J)
         if IJ not in self.probes:
             self.warn(f'mesh offset at {IJ} cannot be leveled')
