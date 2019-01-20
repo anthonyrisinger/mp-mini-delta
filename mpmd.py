@@ -47,12 +47,13 @@ class Printer:
     """Monoprice Mini Delta controller."""
 
     Coordinates = collections.namedtuple('Coordinates', 'X,Y,Z')
+    Coordinates.__new__.__defaults__ = (None,) * len(Coordinates._fields)
 
     # Set of all possible IJ bed mesh probe indices.
     probes = { (I, J) for J in range(7) for I in range(7) if math.sqrt((I-3)**2 + (J-3)**2) <= 3 }
 
     # Tower positions.
-    towers = ((-43.3, -25), (43.3, -25), (0, 50))
+    towers = (Coordinates(-43.3, -25), Coordinates(43.3, -25), Coordinates(0, 50))
 
     def __init__(self, *, dryrun=False, quiet=False, debug=False, pattern='/dev/cu.usbmodem*',
                  port=None, baudrate=115200, parity=serial.PARITY_NONE, **kwds):
