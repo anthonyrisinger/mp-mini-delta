@@ -181,14 +181,14 @@ class Printer:
         """Write gcode to connection."""
         if comment is None:
             comment = GCODES.get(op)
-        gcode = self.gcode(op, comment=comment, **pvs)
+        gcode = [*self.gcode(op, comment=comment, **pvs)]
         if not gcode:
             call = ', '.join((op, *(f"{p}={v}" for p,v in pvs.items())))
             self.error(f'gcode({call}) -> ()', format=False)
             return None
 
         if self.debug > 0:
-            self.log(f'>>>> {b" ".join(gcode).decode().rstrip()}', format=None)
+            self.log(f'>>>> {b"".join(gcode).decode().rstrip()}', format=None)
 
         if self.dryrun:
             return None
@@ -221,6 +221,8 @@ class Printer:
 
     def gconv(self, op, param, value):
         """Convert (param, value) pair to string."""
+        if value is None:
+            return None
         if value is True:
             return f'{param}'
         if param in ('X', 'Y', 'Z', 'Q'):
@@ -231,9 +233,16 @@ class Printer:
 
     def gcode(self, op, *, comment=None, **pvs):
         """Convert (op, params) to gcode IO list."""
-        end = (b'\n',) if comment is None else (b';', comment.encode(), b'\n')
-        gcode = (op.encode(), *(self.gconv(op, *pv).encode() for pv in pvs.items()), *end)
-        return gcode
+        yield op.encode()
+        for pv in pvs.items():
+            pv = self.gconv(op, *pv)
+            if pv is not None:
+                yield b' '
+                yield pv.encode()
+        if comment is not None:
+            yield b' ; '
+            yield comment.encode()
+        yield b'\n'
 
     def home(self):
         """Home the printer."""
@@ -260,6 +269,9 @@ class Printer:
         if len(args) == 1 and hasattr(args[0], '__len__'):
             args = tuple(args[0])
         kwds.update(zip(('X', 'Y', 'Z', 'F', 'E'), args))
+        for key, value in kwds.items():
+            if value is None:
+                kwds.pop(key)
 
         for (dim, dmin, dmax) in (
                 ('X', -60.0,  60.0),
