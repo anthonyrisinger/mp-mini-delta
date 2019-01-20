@@ -13,7 +13,7 @@ import traceback
 
 import serial
 
-
+MARKER = 'MPMD'
 GCODES = {
     'G1': 'linear move',
     'G90': 'absolute positioning',
@@ -24,15 +24,23 @@ GCODES = {
 }
 
 
-def load_ipython_extension(ipython, quiet=False, debug=False):
+def load_ipython_extension(ipython, **kwds):
     """Run IPython shell -> %reload_ext mpmd"""
-    for ns in (os.environ, ipython.user_ns):
-        quiet = int(ns.get('MPMDQUIET') or quiet)
-        debug = int(ns.get('MPMDDEBUG') or debug)
-    mp = Printer(quiet=quiet, debug=debug)
+    mlen = len(MARKER)
+    config = {json.loads: [os.environ], None: [ipython.user_ns]}
+    for loader, sources in config.items():
+        for ns in sources:
+            update = ns.get(MARKER) or {}
+            update = json.loads(update) if not hasattr(update, 'keys') else update
+            for key, value in ns.items():
+                if len(key) > mlen and key[:mlen].upper() == MARKER:
+                    key = key[mlen:].lstrip('-_').lower()
+                    update[key] = loader(value) if loader is not None else value
+            kwds.update(update)
+    mp = Printer(**kwds)
     mp.info("Use 'mp' to interact, eg", suffix=':')
     mp.info('>>> mp.home()', format=False)
-    ipython.push({'mp': mp, 'mpmd': sys.modules[__name__]})
+    ipython.push({'mp': mp, __name__: sys.modules[__name__]})
 
 
 class Printer:
