@@ -52,6 +52,8 @@ class Printer:
     # Set of all possible IJ bed mesh probe indices.
     probes = { (I, J) for J in range(7) for I in range(7) if math.sqrt((I-3)**2 + (J-3)**2) <= 3 }
 
+    # Center point.
+    center = Coordinates(0, 0)
     # Tower positions.
     towers = (Coordinates(-43.3, -25), Coordinates(43.3, -25), Coordinates(0, 50))
 
