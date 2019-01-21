@@ -285,7 +285,7 @@ class Printer:
         self.G1(**kwds)
         return self
 
-    def bed(self, I=3, J=3, X=0, Y=0, Z=10):
+    def bed(self, I=3, J=3, X=0, Y=0, Z=15):
         """Compute XYZ coords for IJ bed mesh index."""
         assert I >= 0 and I <= 6
         assert J >= 0 and J <= 6
