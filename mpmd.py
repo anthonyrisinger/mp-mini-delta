@@ -269,9 +269,7 @@ class Printer:
         if len(args) == 1 and hasattr(args[0], '__len__'):
             args = tuple(args[0])
         kwds.update(zip(('X', 'Y', 'Z', 'F', 'E'), args))
-        for key, value in kwds.items():
-            if value is None:
-                kwds.pop(key)
+        kwds = {k:v for k,v in kwds.items() if v is not None}
 
         for (dim, dmin, dmax) in (
                 ('X', -60.0,  60.0),
