@@ -53,7 +53,7 @@
       "default_value": 110
     },
     "machine_end_gcode": {
-      "default_value": "M104 S0;(extruder heater off)\nM140 S0;(heated bed heater off)\nG91;(relative positioning)\nG1 E-1 F300;(retract the filament to release some of the pressure)\nG1 Z+0.5 E-5 X-20 Y-20 F6000;(move Z up a bit and retract filament even more)\nG28 Z0;(move Z to min endstops, so the head is out of the way)\nM84;(steppers off)\nG90;(absolute positioning)\nG4 S360;(wait 6 minutes)\nM107;(turn off the fan.)"
+      "default_value": "M104 S0;(extruder heater off)\nM140 S0;(heated bed heater off)\nG91;(relative positioning)\nG1 E-1 F300;(retract the filament to release some of the pressure)\nG1 Z+0.5 E-5 X-20 Y-20 F6000;(move Z up a bit and retract filament even more)\nG28 X;(move X/Y to min endstops, so the head is out of the way)\nM84;(steppers off)\nG90;(absolute positioning)\nG4 S360;(wait 6 minutes)\nM107;(turn off the fan.)"
     },
     "machine_gcode_flavor": {
       "default_value": "RepRap (Marlin/Sprinter)"
@@ -109,7 +109,7 @@
       "default_value": true
     },
     "machine_start_gcode": {
-      "default_value": "G21;(metric values)\nG90;(absolute positioning)\nM82;(set extruder to absolute mode)\nM107;(start with the fan off)\nG29 P0;(Level the bed.)\nG1 X55 Y0 Z5 F3000;(Move to the outside of the bed.)\nG92 E0;(reset extrusion distance)\nG1 E5 F500;(Prime.)\nG1 Z0;(Down to printing height.)\nG2 X0 Y55 I-55 J0 E20 F3000;(Draw a priming arc.)\nG1 E15 F5000;(Small retract)\nG92 E0;(zero the extruded length)\n"
+      "default_value": "G21;(metric values)\nG90;(absolute positioning)\nM82;(set extruder to absolute mode)\nM107;(start with the fan off)\nG28;(Home)\nG29 P0;(Level the bed.)\nG1 X55 Y0 Z5 F3000;(Move to the outside of the bed.)\nG92 E0;(reset extrusion distance)\nG1 E5 F500;(Prime.)\nG1 Z0;(Down to printing height.)\nG2 X0 Y55 I-55 J0 E20 F3000;(Draw a priming arc.)\nG1 E15 F5000;(Small retract)\nG92 E0;(zero the extruded length)"
     },
     "machine_width": {
       "default_value": 110
